@@ -30,7 +30,7 @@ void GraphPlanner::Init(const ros::NodeHandle& nh, const GraphPlannerParams& par
     free_terrain_grid_ = std::make_unique<grid_ns::Grid<char>>(grid_size, INIT_BIT, grid_origin, grid_resolution, 3);   //cell里存放0初始，1障碍物，2空地
 }
 
-void GraphPlanner::UpdateGraphTraverability(const NavNodePtr& odom_node_ptr, const NavNodePtr& goal_ptr)    // 从odom开始，把所有的nav_node的fscore都更新一遍
+void GraphPlanner::UpdateGraphTraverability(const NavNodePtr& odom_node_ptr, const NavNodePtr& goal_ptr) 
 {
     if (odom_node_ptr == NULL || current_graph_.empty()) {
         ROS_ERROR("GP: Update global graph traversablity fails.");
@@ -41,13 +41,11 @@ void GraphPlanner::UpdateGraphTraverability(const NavNodePtr& odom_node_ptr, con
     // start expand the whole current_graph_
     odom_node_ptr_->gscore = 0.0;
     IdxSet open_set;
-    std::priority_queue<NavNodePtr, NodePtrStack, nodeptr_gcomp> open_queue;    //按gscore从大到小排
+    std::priority_queue<NavNodePtr, NodePtrStack, nodeptr_gcomp> open_queue;
     IdxSet close_set;
     // Expansion from odom node to all reachable navigation node
     open_queue.push(odom_node_ptr_);
     open_set.insert(odom_node_ptr_->id);
-
-
     while (!open_set.empty()) {
         const NavNodePtr current = open_queue.top();
         open_queue.pop();
@@ -56,11 +54,6 @@ void GraphPlanner::UpdateGraphTraverability(const NavNodePtr& odom_node_ptr, con
         current->is_traversable = true; // reachable from current position
         for (const auto& neighbor : current->connect_nodes) {
             if (close_set.count(neighbor->id) || this->IsInvalidBoundary(current, neighbor)) continue;
-            float h = 0;
-            if(goal_ptr != NULL){
-                h = this->EulerCost(neighbor, goal_ptr);
-                //h = this->EulerCost(current, goal_ptr);
-            }
             float edist = this->EulerCost(current, neighbor);
             if (neighbor == goal_ptr && edist > FARUtil::kEpsilon && !FARUtil::IsAtSameLayer(neighbor, current)) { // check for multi layer traverse cost
                 const Point3D diff_p = neighbor->position - current->position;
@@ -71,19 +64,14 @@ void GraphPlanner::UpdateGraphTraverability(const NavNodePtr& odom_node_ptr, con
                     continue;
                 }
             }
-            // if(ContourGraph::IsNavNodesConnectFromContour(current,neighbor)) continue;
             const float temp_gscore = current->gscore + edist;
-            const float temp_heuristic = temp_gscore + h;
             if (temp_gscore < neighbor->gscore) {
                 neighbor->parent = current;
                 neighbor->gscore = temp_gscore;
-                if(temp_heuristic < neighbor->heuristic){
-                    if (!open_set.count(neighbor->id)) {
-                        open_queue.push(neighbor);
-                        open_set.insert(neighbor->id);
-                    }
+                if (!open_set.count(neighbor->id)) {
+                    open_queue.push(neighbor);
+                    open_set.insert(neighbor->id);
                 }
-                
             }
         }
     }
@@ -101,10 +89,10 @@ void GraphPlanner::UpdateGraphTraverability(const NavNodePtr& odom_node_ptr, con
         close_set.insert(current->id);
         current->is_free_traversable = true; // reachable from current position
         for (const auto& neighbor : current->connect_nodes) {
-            if (!neighbor->is_covered || close_set.count(neighbor->id) || this->IsInvalidBoundary(current, neighbor)) continue;     //剔除掉is_covered为false的点
+            if (!neighbor->is_covered || close_set.count(neighbor->id) || this->IsInvalidBoundary(current, neighbor)) continue;
             const float e_dist = this->EulerCost(current, neighbor);
             if (neighbor == goal_ptr && (!is_goal_in_freespace_ || e_dist > FARUtil::kTerrainRange)) continue;
-            const float temp_fgscore = current->fgscore + e_dist;       //计算fgscore分数
+            const float temp_fgscore = current->fgscore + e_dist;
             if (temp_fgscore < neighbor->fgscore) {
                 neighbor->free_parent = current;
                 neighbor->fgscore = temp_fgscore;
