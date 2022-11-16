@@ -56,6 +56,7 @@ GPlanner/free_counter_thred             : 7
 GPlanner/reach_goal_vote_size           : 3
 GPlanner/path_momentum_thred            : 3
 
+# Global_grid转成栅格图的参数，默认关闭
 # Global_grid Params
 # GGrid/cell_length                       : 0.5  # Unit: meter
 # GGrid/grid_max_length                   : 500 # Unit: meter
